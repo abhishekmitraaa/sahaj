@@ -1,0 +1,43 @@
+{
+  "name": "sahaj",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sahaj: an offline accessible study reader that adapts one document to every sense.",
+  "scripts": {
+    "postinstall": "node scripts/copy-assets.mjs",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "sample": "tsx scripts/make-sample-pdf.ts"
+  },
+  "dependencies": {
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/lexend": "^5.3.0",
+    "@fontsource/mukta": "^5.3.0",
+    "@fontsource/opendyslexic": "^5.3.0",
+    "idb-keyval": "^6.3.0",
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^6.4.299",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tesseract.js": "^7.0.0",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/hin": "^1.0.0",
+    "@types/node": "^26.6.5",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.1.2",
+    "axe-core": "^4.14.0",
+    "pdf-lib": "^1.17.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.5"
+  }
+}
