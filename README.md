@@ -50,9 +50,21 @@ npm run build && npm run preview   # http://localhost:4173
 Use **Google Chrome or Microsoft Edge** for speech recognition (captions and voice commands). Read-aloud works in every modern browser. For Hindi read-aloud, Chrome's "Google हिन्दी" voice needs internet. Offline, install a Hindi voice in Windows Settings → Time & language → Speech.
 
 ```bash
-npm test             # 34 unit tests: PDF layout, cleanup, NLP, lecture matching, commands
+npm test             # 36 unit tests: PDF layout, cleanup, NLP, lecture matching, commands
+npm run test:e2e     # 28 browser tests in installed Chrome (needs `npm run build` first)
+npm run test:all     # unit tests + type-check + build + browser tests
 npm run sample       # regenerate the sample PDF and demo lecture script
 ```
+
+The browser tests drive the real app end to end:
+- opening every file type, including offline OCR of a photo
+- the Before / After view
+- read-aloud highlighting, both with and without word-timing events from the voice
+- every display control and profile, and the keyboard shortcuts
+- glossary and summary
+- the demo lecture, plus live captions and voice commands through a simulated microphone
+- the library, offline mode and the phone layout
+- an axe-core accessibility audit of every screen and theme
 
 ## How it works
 

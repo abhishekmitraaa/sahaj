@@ -171,7 +171,10 @@ function Notes({ doc, onClear }: { doc: Doc; onClear: () => void }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => endRef.current?.scrollIntoView({ block: 'nearest' }), [captions.length]);
+  // Braces matter: Chrome's scrollIntoView now returns a Promise, which React would treat as a cleanup.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [captions.length]);
   if (!captions.length) return <p className="panel-lead">{t('notesEmpty')}</p>;
   return (
     <>

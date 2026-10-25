@@ -1,5 +1,5 @@
 import type { Block } from '../types';
-import { buildIndex, scoreAll, type TfIdfIndex } from './tfidf';
+import { buildIndex, queryVector, scoreAll, type TfIdfIndex } from './tfidf';
 
 export interface MatchResult {
   blockIndex: number;
@@ -51,14 +51,20 @@ export class LectureMatcher {
     // Weight the newest speech more: score the full window and the latest caption.
     const full = scoreAll(this.index, this.window.join(' '));
     const recent = scoreAll(this.index, caption);
+    const recentTerms = [...queryVector(this.index, caption).keys()];
     const curT = this.targets.indexOf(this.current);
 
     let best = -1;
     let bestScore = 0;
     full.forEach((s, t) => {
-      let score = 0.6 * s + 0.4 * recent[t];
+      // A single shared word ("open your notebooks") is not evidence of a topic:
+      // the latest caption must share at least two content words with the paragraph.
+      const shared = recentTerms.filter((term) => this.index.vectors[t].has(term)).length;
+      if (shared < 2 && t !== curT) return;
+      let score = 0.5 * s + 0.5 * recent[t];
       if (curT >= 0) {
-        if (t === curT) score += 0.04;
+        // Staying put is only favoured while the teacher is still on the same topic.
+        if (t === curT) score += shared > 0 ? 0.04 : -0.04;
         else if (t > curT && t <= curT + 3) score += 0.03;
         else score -= 0.02;
       }

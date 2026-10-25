@@ -10,7 +10,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "sample": "tsx scripts/make-sample-pdf.ts"
+    "sample": "tsx scripts/make-sample-pdf.ts",
+    "test:e2e": "playwright test",
+    "test:all": "vitest run && tsc --noEmit && vite build && playwright test"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",
@@ -26,6 +28,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tesseract.js-data/eng": "^1.0.0",
     "@tesseract.js-data/hin": "^1.0.0",
     "@types/node": "^26.6.5",

@@ -129,7 +129,7 @@ export const useSettings = create<SettingsStore>()(
       set: (patch) => set(patch),
       applyProfile: (id) => {
         const p = PROFILES.find((x) => x.id === id);
-        if (p) set({ ...p.settings, profile: id, onboarded: true });
+        if (p) set({ ...p.settings, profile: id });
       },
     }),
     { name: 'sahaj-settings', storage: createJSONStorage(() => safeStorage), version: 1 },

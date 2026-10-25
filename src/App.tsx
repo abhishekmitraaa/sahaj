@@ -20,6 +20,7 @@ import { Dock } from './components/Dock';
 import { CompareView } from './components/CompareView';
 import { DisplayDrawer, HelpDialog, Onboarding, Toast, useStatusToast } from './components/Dialogs';
 import { Icon } from './components/Icon';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function BrandMark() {
   return (
@@ -49,14 +50,15 @@ export default function App() {
   const small = useMediaQuery('(max-width: 1100px)');
   // On small screens the side panel is a bottom sheet: closed until asked for.
   const [sheetOpen, setSheetOpen] = useState(false);
-  const firstPanel = useRef(true);
+  // Open it when something asks for a panel (a command, a caption term), but not
+  // when a profile switch merely changes the default panel.
+  const lastPanel = useRef({ panel: s.panel, profile: s.profile });
   useEffect(() => {
-    if (firstPanel.current) {
-      firstPanel.current = false;
-      return;
-    }
+    const prev = lastPanel.current;
+    lastPanel.current = { panel: s.panel, profile: s.profile };
+    if (prev.profile !== s.profile || prev.panel === s.panel) return;
     setSheetOpen(!!s.panel);
-  }, [s.panel]);
+  }, [s.panel, s.profile]);
 
   const blocks = useMemo(() => (doc ? makeViewBlocks(doc.blocks, s.plain) : []), [doc, s.plain]);
   const playback = usePlayback(blocks, doc?.id);
@@ -287,9 +289,17 @@ export default function App() {
         <div className={`workspace${showToc ? '' : ' no-toc'}${showPanel ? '' : ' no-panel'}${tocOpen ? ' toc-open' : ''}`}>
           <Toc blocks={blocks} onGo={(i) => { playback.goTo(i); scrollToBlock(blocks[i].id); setTocOpen(false); }} />
           <main className="reading-scroll" id="main" tabIndex={-1}>
-            <Reader blocks={blocks} onRead={onRead} onTranslate={translate} canTranslate={canTranslate} translatingId={translatingId} />
+            <ErrorBoundary fallback={(retry) => <Recover onRetry={retry} />}>
+              <Reader blocks={blocks} onRead={onRead} onTranslate={translate} canTranslate={canTranslate} translatingId={translatingId} />
+            </ErrorBoundary>
           </main>
-          {showPanel ? <Panel doc={doc} entries={entries} onClearNotes={lecture.clearNotes} /> : <aside className="panel" aria-hidden="true" />}
+          {showPanel ? (
+            <ErrorBoundary fallback={(retry) => <aside className="panel"><Recover onRetry={retry} /></aside>}>
+              <Panel doc={doc} entries={entries} onClearNotes={lecture.clearNotes} />
+            </ErrorBoundary>
+          ) : (
+            <aside className="panel" aria-hidden="true" />
+          )}
         </div>
       )}
       {doc && !compare && <Dock blocks={blocks} entries={entries} playback={playback} lecture={lecture} voice={voice} />}
@@ -303,6 +313,16 @@ export default function App() {
       {!s.onboarded && <Onboarding onDone={() => s.set({ onboarded: true })} />}
       {displayOpen && <DisplayDrawer onClose={() => setApp({ displayOpen: false })} />}
       {helpOpen && <HelpDialog onClose={() => setApp({ helpOpen: false })} />}
+    </div>
+  );
+}
+
+function Recover({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="error" role="alert" style={{ margin: 24, width: 'auto' }}>
+      <strong>This part of the screen hit a problem.</strong>
+      Your document and notes are safe.{' '}
+      <button type="button" className="btn" style={{ marginTop: 8 }} onClick={onRetry}>Show it again</button>
     </div>
   );
 }

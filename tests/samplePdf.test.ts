@@ -35,3 +35,29 @@ describe('sample chapter PDF (real pdf.js extraction)', async () => {
     expect(stomata).toBeTruthy();
   });
 });
+
+describe('demo lecture script follows the sample chapter', async () => {
+  const { LectureMatcher } = await import('../src/lib/nlp/match');
+  const data = new Uint8Array(readFileSync('public/samples/sample-chapter.pdf'));
+  const pdf = (await pdfjs.getDocument({ data, verbosity: 0 }).promise) as unknown as PdfDocLike;
+  const doc = buildFromPages(await extractPages(pdf));
+  const script: { text: string }[] = JSON.parse(readFileSync('public/samples/lecture-script.json', 'utf8'));
+  const m = new LectureMatcher(doc.blocks);
+  const hits = script.map((l) => {
+    const r = m.push(l.text);
+    return r ? doc.blocks[r.blockIndex].text : null;
+  });
+
+  it('ignores classroom chatter', () => {
+    expect(hits[0]).toBeNull();
+  });
+  it('lands on the paragraph the teacher is explaining', () => {
+    expect(hits[3]).toMatch(/^Photosynthesis is the process/);
+    expect(hits[7]).toMatch(/^If you look at the underside of a leaf/);
+    expect(hits[9]).toMatch(/^Chlorophyll is a green pigment/);
+    expect(hits[12]).toMatch(/^Plants absorb water/);
+    expect(hits[13]).toMatch(/^Plants lose a large amount of water/);
+    expect(hits[14]).toMatch(/^The glucose made in the leaves/);
+    expect(hits[16]).toMatch(/^Photosynthesis is the foundation/);
+  });
+});

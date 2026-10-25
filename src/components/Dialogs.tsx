@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { PROFILES, useSettings, type FontChoice, type Overlay, type ProfileId, type Theme } from '../state/settings';
 import { useApp } from '../state/app';
 import { PROFILE_TEXT, useT, type StringKey } from '../i18n';
@@ -91,13 +91,15 @@ function Toggle({ label, hint, checked, onChange }: { label: string; hint?: stri
 }
 
 function Range(p: { label: string; value: number; min: number; max: number; step: number; format: (v: number) => string; onChange: (v: number) => void }) {
+  // Explicit for/id: an <output> inside the <label> would otherwise steal the label from the slider.
+  const id = useId();
   return (
-    <label className="field">
+    <div className="field">
       <span className="field-label">
-        {p.label} <output>{p.format(p.value)}</output>
+        <label htmlFor={id}>{p.label}</label> <output htmlFor={id}>{p.format(p.value)}</output>
       </span>
-      <input type="range" min={p.min} max={p.max} step={p.step} value={p.value} onChange={(e) => p.onChange(Number(e.target.value))} aria-valuetext={p.format(p.value)} />
-    </label>
+      <input id={id} type="range" min={p.min} max={p.max} step={p.step} value={p.value} onChange={(e) => p.onChange(Number(e.target.value))} aria-valuetext={p.format(p.value)} />
+    </div>
   );
 }
 
