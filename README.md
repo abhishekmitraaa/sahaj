@@ -13,13 +13,14 @@ It needs no account, no upload and no API key. Files and notes never leave the d
 | **Deaf / hard-of-hearing students in class** | Live captions (Live Transcribe, Otter) in a separate app. The student still has to work out *where in the textbook* the teacher is. | **Lecture Sync** matches every caption to the open document in real time. The paragraph being discussed is highlighted and scrolled into view. Key terms in captions open their definition. The lecture is saved as notes **filed under the section it matched**. |
 | **Messy school PDFs** | Screen readers and TTS read out "Page 3", running headers and "photo- synthesis". Two-column pages come out interleaved. | The **Clean-Read pipeline** rebuilds reading order (column detection), strips repeated headers/footers and page numbers, rejoins hyphenated words, detects headings, lists and figure captions, and OCRs scanned pages. A **Before / After** view shows exactly what was fixed. |
 | **Tools work in silos** | One app for TTS, another for fonts, another for captions. | **Learning profiles** (dyslexia, low vision, blind, deaf/HoH, ADHD) change display, speech and layout in one click. Everything adapts the *same* document. |
-| **Bilingual classrooms** | Mostly English-only. | English and Hindi read-aloud, captions, voice commands and interface. Hindi definitions are mined from Hindi text, there is an English→Hindi key-word glossary, and on-device paragraph translation is offered where Chrome supports it. |
+| **Bilingual classrooms** | Mostly English-only. | English and Hindi read-aloud, captions, voice commands and interface. **Listen in Hindi** translates an English chapter on the device and reads it aloud in Hindi with word highlighting. Hindi definitions are mined from Hindi text, and there is an English→Hindi key-word glossary. |
 | **Privacy and connectivity** | Cloud uploads and subscriptions. | 100% in-browser. An installable PWA precaches the app, fonts and OCR engine. |
 
 ## Features
 
 **Assistive outputs**
 - **Read aloud with word-by-word highlighting** (a yellow "highlighter" that follows each word). Sentence and section navigation, 0.5–2.5× speed, Indian English and Hindi voices, and click any word to start there. When a voice gives no word timing (Chrome's online voices), the highlight follows a syllable-based estimate.
+- **Listen in Hindi.** Press the अ button in the player, press `H`, say "read in Hindi / हिंदी में पढ़ो", or tap अ on any paragraph. English text is then translated to Hindi on the device just ahead of the voice. The Hindi appears under each English paragraph and is read by a Hindi voice, with the highlighter following the Hindi words. It uses Chrome's built-in translator (Chrome 138+ on a computer): the Hindi pack downloads once, with progress shown, and works offline afterwards.
 - **Lecture Sync captions** (Web Speech API, `en-IN` / `hi-IN`) matched to the document with TF-IDF and forward-biased tracking. Includes large adjustable captions, linked key terms, timestamped notes and Markdown export. The **demo lecture** mode replays a scripted lecture so a demo never depends on Wi-Fi or a noisy room.
 - **Voice commands** in English and Hindi, push-to-talk (`V`). Examples: "read / पढ़ो", "slower / धीरे", "next section / अगला भाग", "go to stomata", "what does chlorophyll mean / क्लोरोफिल का मतलब", "bigger text", "dark mode". Every action is confirmed through an ARIA live region, and spoken aloud in the low-vision and blind profiles.
 
@@ -50,8 +51,8 @@ npm run build && npm run preview   # http://localhost:4173
 Use **Google Chrome or Microsoft Edge** for speech recognition (captions and voice commands). Read-aloud works in every modern browser. For Hindi read-aloud, Chrome's "Google हिन्दी" voice needs internet. Offline, install a Hindi voice in Windows Settings → Time & language → Speech.
 
 ```bash
-npm test             # 36 unit tests: PDF layout, cleanup, NLP, lecture matching, commands
-npm run test:e2e     # 28 browser tests in installed Chrome (needs `npm run build` first)
+npm test             # 40 unit tests: PDF layout, cleanup, NLP, lecture matching, commands
+npm run test:e2e     # 34 browser tests in installed Chrome (needs `npm run build` first)
 npm run test:all     # unit tests + type-check + build + browser tests
 npm run sample       # regenerate the sample PDF and demo lecture script
 ```
@@ -79,7 +80,7 @@ File ──► pdf.js text runs (x, y, size) ──► column gutter detection �
 - `src/lib/structure/`: the Clean-Read pipeline (`pdfLayout.ts`, `build.ts`, `segment.ts`).
 - `src/lib/nlp/`: readability, syllables, TF-IDF, lecture matcher, glossary mining, TextRank, plain language.
 - `src/lib/speech/`: TTS with boundary fallback, speech recognition wrapper, bilingual command grammar.
-- `src/lib/chromeai.ts`: optional Chrome on-device Translator and Summarizer (progressive enhancement only).
+- `src/lib/chromeai.ts` and `src/lib/hindi.ts`: Chrome's on-device Translator (Listen in Hindi) and Summarizer, used only when the browser has them.
 - `src/components/`: the React UI. All state lives in Zustand; documents and notes are kept in IndexedDB.
 
 ## Accessibility of the app itself

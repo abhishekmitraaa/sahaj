@@ -21,6 +21,8 @@ interface AppState {
     startedAt: number;
   };
   translations: Record<string, string>;
+  /** First-time download progress of Chrome's Hindi translator (0–1), or null. */
+  hindiDownload: number | null;
   glossaryFocus: string | null;
   displayOpen: boolean;
   helpOpen: boolean;
@@ -37,6 +39,7 @@ export const useApp = create<AppState>()((set) => ({
   status: { text: '', id: 0 },
   lecture: { active: false, mode: null, interim: '', captions: [], match: null, local: null, startedAt: 0 },
   translations: {},
+  hindiDownload: null,
   glossaryFocus: null,
   displayOpen: false,
   helpOpen: false,

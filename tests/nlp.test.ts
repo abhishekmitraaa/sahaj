@@ -119,6 +119,10 @@ describe('parseCommand', () => {
     ['start lecture', { type: 'lectureStart' }],
     ['dark mode', { type: 'theme', theme: 'dark' }],
     ['bigger text', { type: 'bigger' }],
+    ['read in hindi', { type: 'translate' }],
+    ['हिंदी में पढ़ो', { type: 'translate' }],
+    ['read in english', { type: 'english' }],
+    ['अंग्रेज़ी में पढ़ो', { type: 'english' }],
     ['banana', null],
   ])('%s', (input, expected) => {
     expect(parseCommand(input)).toEqual(expected);

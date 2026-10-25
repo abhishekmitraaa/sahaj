@@ -156,19 +156,24 @@ interface DockProps {
   playback: Playback;
   lecture: { startLive: () => void; startSim: () => void; stop: () => void };
   voice: { listening: boolean; heard: string; toggle: () => void };
+  hindi: { on: boolean; available: boolean; toggle: () => void };
 }
 
-export function Dock({ blocks, entries, playback, lecture, voice }: DockProps) {
+export function Dock({ blocks, entries, playback, lecture, voice, hindi }: DockProps) {
   const t = useT();
   const playing = useApp((s) => s.playing);
   const pos = useApp((s) => s.pos);
   const lectureActive = useApp((s) => s.lecture.active);
+  const download = useApp((s) => s.hindiDownload);
   const s = useSettings();
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   useEffect(() => {
     loadVoices().then(setVoices);
   }, []);
-  const docLang = blocks[pos.b]?.lang ?? 'en';
+  const blockLang = blocks[pos.b]?.lang ?? 'en';
+  // The voice list follows the language actually being spoken.
+  const docLang = hindi.on && blockLang === 'en' ? 'hi' : blockLang;
+  const hasEnglish = blocks.some((b) => b.lang === 'en');
   const langVoices = voicesFor(docLang, voices);
   const voiceKey = docLang === 'hi' ? 'voiceHi' : 'voiceEn';
   const sec = sectionOf(blocks, pos.b);
@@ -226,6 +231,24 @@ export function Dock({ blocks, entries, playback, lecture, voice }: DockProps) {
           {sec >= 0 ? blocks[sec].text : ''}
         </div>
         <div className="player-extra">
+          {hasEnglish && (
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={hindi.on}
+              onClick={hindi.toggle}
+              disabled={!hindi.available}
+              title={hindi.available ? `${t('listenHindi')} (H)` : t('hindiUnsupported')}
+            >
+              <span aria-hidden="true" style={{ fontFamily: 'Mukta, sans-serif', fontWeight: 700 }}>अ</span>
+              <span className="btn-label">{t('listenHindi')}</span>
+              {download !== null && (
+                <span className="muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {t('downloading')} {Math.round(download * 100)}%
+                </span>
+              )}
+            </button>
+          )}
           <LectureMenu onLive={lecture.startLive} onSim={lecture.startSim} />
           <button
             type="button"

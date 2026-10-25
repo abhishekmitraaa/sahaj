@@ -174,3 +174,59 @@ export async function axeViolations(page: Page): Promise<string[]> {
     return r.violations.map((v) => `${v.impact} ${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
   });
 }
+
+export interface History {
+  here: string[];
+  match: string[];
+  words: string[];
+}
+
+/**
+ * Records, from page load, every paragraph marked "Teacher is here", every
+ * caption-match label and every highlighted word, so assertions don't depend on
+ * catching a moment in time on a slow machine.
+ */
+export async function trackHistory(page: Page) {
+  await page.addInitScript(() => {
+    const h = { here: [] as string[], match: [] as string[], words: [] as string[] };
+    (window as unknown as { __history: typeof h }).__history = h;
+    const push = (arr: string[], v: string | null | undefined) => {
+      if (v && arr[arr.length - 1] !== v) arr.push(v);
+    };
+    const record = () => {
+      push(h.here, document.querySelector('.blk.is-here')?.id);
+      push(h.match, document.querySelector('.captions-match')?.textContent);
+      push(h.words, document.querySelector('.w.is-word')?.textContent);
+    };
+    new MutationObserver(record).observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+  });
+}
+
+export const history = (page: Page): Promise<History> =>
+  page.evaluate(() => (window as unknown as { __history: History }).__history);
+
+/**
+ * Stand-in for Chrome's on-device Translator API. Each English sentence becomes one
+ * Hindi sentence ("अनुवाद: N शब्द।"), so sentence counts stay comparable.
+ */
+export async function fakeTranslator(page: Page, availability: 'available' | 'unsupported' = 'available') {
+  await page.addInitScript((avail: string) => {
+    if (avail === 'unsupported') {
+      Object.defineProperty(window, 'Translator', { value: undefined, configurable: true });
+      return;
+    }
+    const translate = async (text: string) =>
+      (text.match(/[^.!?]+[.!?]?/g) ?? [text])
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => `अनुवाद: ${s.split(/\s+/).length} शब्द।`)
+        .join(' ');
+    Object.defineProperty(window, 'Translator', {
+      configurable: true,
+      value: {
+        availability: async () => 'available',
+        create: async () => ({ translate }),
+      },
+    });
+  }, availability);
+}

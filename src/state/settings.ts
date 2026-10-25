@@ -38,6 +38,8 @@ export interface Settings extends DisplaySettings {
   panel: Panel | null;
   showToc: boolean;
   speakFeedback: boolean;
+  /** Translate English text to Hindi on device and read the Hindi aloud. */
+  listenHindi: boolean;
 }
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
@@ -50,6 +52,7 @@ const DEFAULTS: Settings = {
   ...DEFAULT_DISPLAY,
   onboarded: false, profile: 'standard', uiLang: 'en', rate: 1, voiceEn: null, voiceHi: null, autoScroll: true,
   captionSize: 30, captionLang: 'en-IN', followLecture: true, panel: 'report', showToc: true, speakFeedback: false,
+  listenHindi: false,
 };
 
 export interface Profile {

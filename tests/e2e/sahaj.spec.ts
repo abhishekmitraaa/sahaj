@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import {
-  axeViolations, fakeMicrophone, fakeSpeech, openHindiSample, openSample, sampleHighlightedWords, start,
+  axeViolations, fakeMicrophone, fakeSpeech, fakeTranslator, history, openHindiSample, openSample, sampleHighlightedWords, start, trackHistory,
 } from './helpers';
 
 const stat = (page: import('@playwright/test').Page, label: string) =>
@@ -102,13 +102,13 @@ test.describe('Clean-Read pipeline', () => {
 test.describe('Read aloud', () => {
   test('highlights word by word and moves through sentences and blocks', async ({ page }) => {
     await fakeSpeech(page);
+    await trackHistory(page);
     await start(page);
     await openSample(page);
     await page.getByRole('button', { name: 'Read aloud', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-    const seen = await sampleHighlightedWords(page, 2500);
-    expect(seen.slice(0, 3)).toEqual(['Chapter', '4', 'How']);
-    expect(seen).toContain('Every');
+    await expect.poll(async () => (await history(page)).words, { timeout: 20_000 }).toContain('Every');
+    expect((await history(page)).words.slice(0, 7)).toEqual(['Chapter', '4', 'How', 'Plants', 'Make', 'Their', 'Food']);
     await expect(page.locator('.sent.is-reading')).toHaveCount(1);
     const log = await page.evaluate(() => window.__ttsLog);
     expect(log[0].text).toBe('Chapter 4: How Plants Make Their Food');
@@ -177,6 +177,109 @@ test.describe('Read aloud', () => {
     const seen = await sampleHighlightedWords(page, 5000);
     expect(seen.length).toBeGreaterThanOrEqual(3);
     await page.getByRole('button', { name: 'Pause' }).click();
+  });
+});
+
+test.describe('Listen in Hindi', () => {
+  const lastSpoken = (page: import('@playwright/test').Page) => page.evaluate(() => window.__ttsLog.at(-1) ?? null);
+
+  test('translates English as it reads and speaks it with a Hindi voice', async ({ page }) => {
+    await fakeSpeech(page);
+    await fakeTranslator(page);
+    await start(page);
+    await openSample(page);
+    await page.getByRole('button', { name: 'Listen in Hindi' }).click();
+    await expect(page.getByRole('button', { name: 'Listen in Hindi' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    await expect.poll(async () => (await lastSpoken(page))?.voice).toBe('fake-hi');
+    expect((await lastSpoken(page))!.text).toMatch(/^अनुवाद: \d+ शब्द।$/);
+    expect((await lastSpoken(page))!.lang).toBe('hi-IN');
+    // The Hindi appears under the English, and the highlighter follows the Hindi words.
+    await expect(page.locator('#blk-b0 + .translation')).toHaveText('अनुवाद: 7 शब्द।');
+    await expect(page.locator('.translation .sent.is-reading')).toHaveCount(1);
+    const seen = await sampleHighlightedWords(page, 1500);
+    expect(seen.some((w) => /[ऀ-ॿ]/.test(w))).toBe(true);
+    // Paragraphs ahead are translated before the voice reaches them.
+    await expect.poll(() => page.locator('.translation').count()).toBeGreaterThanOrEqual(3);
+
+    // Switching back reads the original English again.
+    await page.getByRole('button', { name: 'Listen in Hindi' }).click();
+    await expect(page.getByRole('button', { name: 'Listen in Hindi' })).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(async () => (await lastSpoken(page))?.voice).toBe('fake-en');
+    expect((await lastSpoken(page))!.text).toMatch(/[A-Za-z]/);
+  });
+
+  test('the अ button reads that paragraph in Hindi', async ({ page }) => {
+    await fakeSpeech(page);
+    await fakeTranslator(page);
+    await start(page);
+    await openSample(page);
+    await page.locator('#blk-b7').hover();
+    await page.getByRole('button', { name: /^Read this in Hindi: If you look at the underside/ }).click();
+    await expect(page.locator('#blk-b7 + .translation')).toBeVisible();
+    await expect.poll(async () => (await lastSpoken(page))?.voice).toBe('fake-hi');
+    await expect(page.locator('#blk-b7 + .translation .sent.is-reading')).toHaveCount(1);
+  });
+
+  test('clicking a Hindi word reads from that Hindi sentence', async ({ page }) => {
+    await fakeSpeech(page);
+    await fakeTranslator(page);
+    await start(page);
+    await openSample(page);
+    await page.getByRole('button', { name: 'Listen in Hindi' }).click();
+    await expect(page.locator('#blk-b1 + .translation')).toBeVisible();
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await page.locator('#blk-b1 + .translation .sent').nth(2).locator('.w').first().click();
+    await expect(page.locator('#blk-b1 + .translation .sent').nth(2)).toHaveClass(/is-reading/);
+    await expect.poll(async () => (await lastSpoken(page))?.voice).toBe('fake-hi');
+  });
+
+  test('voice commands and the H key switch the reading language', async ({ page }) => {
+    await fakeMicrophone(page);
+    await fakeSpeech(page);
+    await fakeTranslator(page);
+    await start(page);
+    await openSample(page);
+    const command = async (text: string) => {
+      await page.getByRole('button', { name: /Voice commands|Listening/ }).click();
+      await expect.poll(() => page.evaluate((t) => window.__say(t), text)).not.toBe(false);
+    };
+    await command('read in hindi');
+    await expect.poll(async () => (await lastSpoken(page))?.voice).toBe('fake-hi');
+    await command('अंग्रेज़ी में पढ़ो');
+    await expect(page.getByRole('button', { name: 'Listen in Hindi' })).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('.reading-scroll').focus();
+    await page.keyboard.press('h');
+    await expect(page.getByRole('button', { name: 'Listen in Hindi' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('explains what is needed when the browser has no translator', async ({ page }) => {
+    await fakeTranslator(page, 'unsupported');
+    await start(page);
+    await openSample(page);
+    const btn = page.getByRole('button', { name: 'Listen in Hindi' });
+    await expect(btn).toBeDisabled();
+    await expect(btn).toHaveAttribute('title', /built-in translator/);
+    await page.locator('.reading-scroll').focus();
+    await page.keyboard.press('h');
+    await expect(page.getByRole('status').filter({ hasText: 'built-in translator' })).toHaveCount(1);
+  });
+
+  test('real Chrome translator, including first-time download (skipped if unsupported)', async ({ page }) => {
+    test.setTimeout(240_000);
+    await fakeSpeech(page); // real translation, silent speech
+    await start(page);
+    await openSample(page);
+    const avail = await page.evaluate(async () => {
+      const T = (self as unknown as { Translator?: { availability: (o: object) => Promise<string> } }).Translator;
+      return T ? T.availability({ sourceLanguage: 'en', targetLanguage: 'hi' }) : 'unsupported';
+    });
+    test.skip(avail === 'unsupported' || avail === 'unavailable', `Chrome translator is "${avail}" here`);
+    // The click is the user gesture Chrome needs before downloading the Hindi pack.
+    await page.getByRole('button', { name: 'Listen in Hindi' }).click();
+    await expect(page.locator('#blk-b0 + .translation')).toHaveText(/[ऀ-ॿ]{3}/, { timeout: 200_000 });
+    console.log('Real translation of the title:', await page.locator('#blk-b0 + .translation').textContent());
+    await expect.poll(() => page.evaluate(() => window.__ttsLog.at(-1)?.lang)).toBe('hi-IN');
   });
 });
 
@@ -285,17 +388,23 @@ test.describe('Reading aids and display', () => {
 test.describe('Lecture Sync', () => {
   test('demo lecture follows the document and files notes by section', async ({ page }) => {
     test.setTimeout(180_000);
+    await trackHistory(page);
     await start(page, 'Deaf or hard of hearing');
     await openSample(page);
     await page.getByRole('button', { name: 'Lecture' }).click();
     await page.getByRole('button', { name: 'Play demo lecture' }).click();
     const strip = page.getByRole('region', { name: 'Lecture captions' });
     await expect(strip).toBeVisible();
-    const here = page.locator('.blk.is-here');
-    await expect(here).toContainText('Photosynthesis is the process', { timeout: 40_000 });
-    await expect(here).toHaveAttribute('aria-current', 'location');
-    await expect(here).toContainText('underside of a leaf', { timeout: 60_000 });
-    await expect(strip).toContainText('Teacher is here: 4.2 The Leaf: A Food Factory');
+    const sample = page.locator('.paper');
+    const idOf = async (text: string) => sample.locator('.blk', { hasText: text }).first().getAttribute('id');
+    const [intro, photo, stomata] = [await idOf('Every living organism'), await idOf('Photosynthesis is the process'), await idOf('underside of a leaf')];
+    // The marker visits the intro, then photosynthesis, then the stomata paragraph, in lecture order.
+    await expect.poll(async () => (await history(page)).here, { timeout: 90_000 }).toContain(stomata);
+    const here = (await history(page)).here;
+    expect(here.indexOf(intro!)).toBeLessThan(here.indexOf(photo!));
+    expect(here.indexOf(photo!)).toBeLessThan(here.indexOf(stomata!));
+    expect((await history(page)).match).toContain('Teacher is here: 4.2 The Leaf: A Food Factory');
+    await expect(page.locator('.blk.is-here')).toHaveAttribute('aria-current', 'location');
 
     await page.getByRole('tab', { name: /Notes/ }).click();
     await expect(page.locator('.notes-group h3', { hasText: '4.1 What is Photosynthesis?' })).toBeVisible();

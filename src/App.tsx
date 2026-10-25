@@ -6,6 +6,7 @@ import { loadPosition, saveDoc } from './lib/storage';
 import { clearHighlight, scrollToBlock } from './lib/highlight';
 import { say, speaker } from './lib/speech/tts';
 import { translateToHindi, translatorAvailability } from './lib/chromeai';
+import { voicesFor } from './lib/speech/tts';
 import { usePlayback } from './hooks/usePlayback';
 import { useLecture } from './hooks/useLecture';
 import { useVoiceCommands } from './hooks/useVoiceCommands';
@@ -44,8 +45,8 @@ export default function App() {
   const setApp = useApp((a) => a.set);
   const announce = useApp((a) => a.announce);
   const [tocOpen, setTocOpen] = useState(false);
-  const [canTranslate, setCanTranslate] = useState(false);
-  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  const [translator, setTranslator] = useState<Awaited<ReturnType<typeof translatorAvailability>>>('unsupported');
+  const canTranslate = translator !== 'unsupported' && translator !== 'unavailable';
   const toast = useStatusToast();
   const small = useMediaQuery('(max-width: 1100px)');
   // On small screens the side panel is a bottom sheet: closed until asked for.
@@ -72,7 +73,7 @@ export default function App() {
   }, [s.theme, s.uiLang]);
 
   useEffect(() => {
-    translatorAvailability().then((a) => setCanTranslate(a !== 'unsupported' && a !== 'unavailable'));
+    translatorAvailability().then(setTranslator);
   }, []);
 
   // Spoken confirmation for blind / low-vision profiles, in addition to the live region.
@@ -101,23 +102,45 @@ export default function App() {
     setApp({ doc: null, playing: false, compare: false });
   };
 
-  const translate = useCallback(
-    async (index: number) => {
-      const b = blocks[index];
-      if (!b) return;
-      setTranslatingId(b.id);
-      try {
-        const hi = await translateToHindi(b.text);
-        setApp({ translations: { ...useApp.getState().translations, [b.id]: hi } });
-      } catch {
-        announce('Hindi translation needs Chrome’s built-in translator, which is not available here.');
+  // Listen in Hindi: English is translated on device as it is read, and spoken with a Hindi voice.
+  // Kept synchronous so the click still counts as a user gesture if Chrome must download the model.
+  const startHindi = useCallback(
+    (from?: { b: number; s?: number }) => {
+      if (!canTranslate) {
+        announce(t('hindiUnsupported'));
+        return;
       }
-      setTranslatingId(null);
+      if (translator !== 'available') {
+        // First use: Chrome downloads the Hindi pack. Start it here, inside the click, and show progress.
+        announce(t('downloadingTranslator'));
+        setApp({ hindiDownload: 0 });
+        translateToHindi('Ready', (f) => setApp({ hindiDownload: f }))
+          .then(() => {
+            setTranslator('available');
+            announce(voicesFor('hi').length ? t('hindiReady') : t('noHindiVoice'));
+          })
+          .catch(() => announce(t('hindiUnsupported')))
+          .finally(() => setApp({ hindiDownload: null }));
+      } else announce(voicesFor('hi').length ? t('listenHindiOn') : t('noHindiVoice'));
+      playback.setListenHindi(true, from ?? { b: useApp.getState().pos.b });
     },
-    [announce, blocks, setApp],
+    [announce, canTranslate, playback, setApp, t, translator],
   );
+  const stopHindi = useCallback(() => {
+    playback.setListenHindi(false);
+    announce(t('listenHindiOff'));
+  }, [announce, playback, t]);
+  const toggleHindi = useCallback(() => (s.listenHindi ? stopHindi() : startHindi()), [s.listenHindi, startHindi, stopHindi]);
 
-  const onRead = useCallback((index: number, sentence = 0) => playback.playFrom(index, sentence), [playback]);
+  const translate = useCallback((index: number) => startHindi({ b: index, s: 0 }), [startHindi]);
+
+  const onRead = useCallback(
+    (index: number, sentence = 0, hindi = false) => {
+      if (hindi && !useSettings.getState().listenHindi) startHindi({ b: index, s: sentence });
+      else playback.playFrom(index, sentence);
+    },
+    [playback, startHindi],
+  );
 
   const findBlock = (query: string) => {
     const q = query.toLowerCase();
@@ -166,7 +189,8 @@ export default function App() {
       case 'summary': s.set({ panel: 'summary' }); done(t('summary')); break;
       case 'glossary': s.set({ panel: 'glossary' }); done(t('glossary')); break;
       case 'notes': s.set({ panel: 'notes' }); done(t('notes')); break;
-      case 'translate': translate(useApp.getState().pos.b); break;
+      case 'translate': startHindi(); break;
+      case 'english': stopHindi(); break;
       case 'lectureStart': lecture.startLive(); break;
       case 'lectureStop': lecture.stop(); break;
       case 'help': setApp({ helpOpen: true }); break;
@@ -214,6 +238,7 @@ export default function App() {
       else if (k === 'n') act(playback.nextSection);
       else if (k === 'p') act(playback.prevSection);
       else if (k === 'r') act(() => { s.set({ ruler: !s.ruler }); announce(`${t('ruler')}: ${!s.ruler ? 'on' : 'off'}`); });
+      else if (k === 'h') act(toggleHindi);
       else if (k === 's') act(() => { s.set({ plain: !s.plain }); announce(`${t('plain')}: ${!s.plain ? 'on' : 'off'}`); });
       else if (k === 'l') act(() => (useApp.getState().lecture.active ? lecture.stop() : lecture.startSim()));
       else if (k === 'v') act(voice.toggle);
@@ -290,7 +315,7 @@ export default function App() {
           <Toc blocks={blocks} onGo={(i) => { playback.goTo(i); scrollToBlock(blocks[i].id); setTocOpen(false); }} />
           <main className="reading-scroll" id="main" tabIndex={-1}>
             <ErrorBoundary fallback={(retry) => <Recover onRetry={retry} />}>
-              <Reader blocks={blocks} onRead={onRead} onTranslate={translate} canTranslate={canTranslate} translatingId={translatingId} />
+              <Reader blocks={blocks} onRead={onRead} onTranslate={translate} canTranslate={canTranslate} />
             </ErrorBoundary>
           </main>
           {showPanel ? (
@@ -302,7 +327,16 @@ export default function App() {
           )}
         </div>
       )}
-      {doc && !compare && <Dock blocks={blocks} entries={entries} playback={playback} lecture={lecture} voice={voice} />}
+      {doc && !compare && (
+        <Dock
+          blocks={blocks}
+          entries={entries}
+          playback={playback}
+          lecture={lecture}
+          voice={voice}
+          hindi={{ on: s.listenHindi, available: canTranslate, toggle: toggleHindi }}
+        />
+      )}
 
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {status.text}

@@ -5,6 +5,8 @@
 2. Zoom the browser to 110–125% so the back row can read it.
 3. Have a second tab with a teacher-style PDF of your own, if you want to show a "real" file.
 4. Volume up for read-aloud. You do not need a microphone: the demo lecture covers captions.
+5. **Download the Hindi translator once while online.** Open the sample chapter and click **अ Listen in Hindi** in the player. Wait until the Hindi appears under the title (under a minute the first time). After that it works offline.
+6. Make sure a Hindi voice is available. "Google हिन्दी" works while online; for offline use, add Hindi under Windows Settings → Time & language → Speech.
 
 ---
 
@@ -42,8 +44,9 @@ Show the home page. Point at the onboarding profiles if they appear.
 ## 2:25 – Meera: low vision, Hindi medium (25 s)
 
 1. Profile → **Low vision**: very large high-contrast text, with spoken confirmations.
-2. Library → **Try the Hindi sample**. Press **Space** for Hindi read-aloud.
-3. Press **V** and say **"धीरे"** (slower) or **"अगला भाग"** (next section). Or click the mic and say "bigger text".
+2. Stay on the English chapter and click **अ Listen in Hindi** in the player (or press **H**).
+   > "Meera studies in Hindi, but her chapter is in English. Sahaj translates it on this laptop, a paragraph ahead of the voice, and reads it to her in Hindi. The Hindi appears under the English so she can follow both, and the highlighter tracks the Hindi words. Nothing is sent to the internet."
+3. Press **V** and say **"धीरे"** (slower) or **"अंग्रेज़ी में पढ़ो"** (back to English). Or click the mic and say "bigger text".
    > "Hands-free and bilingual. Every action is confirmed out loud and to screen readers."
 
 ## 2:50 – Close (10 s)
@@ -54,6 +57,7 @@ Show the home page. Point at the onboarding profiles if they appear.
 
 ## Likely judge questions
 
+- **"How does it translate without an AI API?"** Chrome 138+ ships an on-device translation model. Sahaj uses it through the browser's Translator API, so the text never leaves the laptop. Browsers without it show a clear message, and everything else still works.
 - **"Is this using an AI API?"** No. The PDF repair, lecture matching (TF-IDF with forward-biased tracking), glossary mining, TextRank summaries and plain-language rewriting all run locally in the browser. If Chrome's built-in on-device AI is present, Sahaj can also translate paragraphs and shorten summaries, still without sending anything to a server.
 - **"Does it work offline?"** Yes, after the first load (it's an installable PWA). The one exception is Chrome's live speech recognition, which uses Google's online service unless the device supports on-device recognition. The demo lecture mode is fully offline.
 - **"What about scanned PDFs or photos of the board?"** Pages with no text layer go through Tesseract OCR (English + Hindi), bundled locally.

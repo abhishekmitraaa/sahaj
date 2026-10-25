@@ -218,6 +218,7 @@ const SHORTCUTS: [string, StringKey | string][] = [
   ['↑ / ↓', 'speed'],
   ['R', 'ruler'],
   ['S', 'plain'],
+  ['H', 'listenHindi'],
   ['L', 'lecture'],
   ['V', 'voiceCommands'],
   ['D', 'display'],

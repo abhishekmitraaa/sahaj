@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ViewBlock } from '../lib/view';
-import { words } from '../lib/structure/segment';
+import { splitSentences, words } from '../lib/structure/segment';
 import { splitSyllables } from '../lib/nlp/syllables';
 import { blockDomId, sentenceId, wordId } from '../lib/highlight';
+import { hindiId } from '../lib/hindi';
 import { useSettings, type FontChoice } from '../state/settings';
 import { useApp } from '../state/app';
 import { useT, type StringKey } from '../i18n';
@@ -88,7 +89,6 @@ interface BlockProps {
   isHere: boolean;
   translation?: string;
   canTranslate: boolean;
-  translating: boolean;
   onRead: (index: number) => void;
   onTranslate: (index: number) => void;
 }
@@ -126,8 +126,8 @@ const BlockView = memo(function BlockView(p: BlockProps) {
           <button type="button" className="tool-btn" onClick={() => p.onRead(p.index)} aria-label={t('readFromHere')} title={t('readFromHere')}>
             <Icon name="play" />
           </button>
-          {p.canTranslate && block.lang === 'en' && !p.translation && (
-            <button type="button" className="tool-btn" onClick={() => p.onTranslate(p.index)} aria-label={`${t('translate')}: ${block.text.slice(0, 40)}`} title={p.translating ? t('translating') : t('translate')} disabled={p.translating}>
+          {p.canTranslate && block.lang === 'en' && (
+            <button type="button" className="tool-btn" onClick={() => p.onTranslate(p.index)} aria-label={`${t('readInHindi')}: ${block.text.slice(0, 40)}`} title={t('readInHindi')}>
               अ
             </button>
           )}
@@ -165,16 +165,21 @@ const BlockView = memo(function BlockView(p: BlockProps) {
   return (
     <>
       {el}
-      {p.translation && (
-        block.type === 'list' ? (
-          <li className="translation" lang="hi" style={{ listStyle: 'none' }}>{p.translation}</li>
-        ) : (
-          <p className="translation" lang="hi">{p.translation}</p>
-        )
-      )}
+      {p.translation && <Translation block={block} text={p.translation} opts={p.opts} />}
     </>
   );
 });
+
+/** The Hindi translation of a block, split into sentence and word spans so read-aloud can highlight it. */
+function Translation({ block, text, opts }: { block: ViewBlock; text: string; opts: WordOpts }) {
+  const hi: ViewBlock = { id: hindiId(block.id), type: 'para', text, lang: 'hi', sentences: splitSentences(text) };
+  const body = <BlockText block={hi} opts={opts} />;
+  return block.type === 'list' ? (
+    <li className="translation" lang="hi" style={{ listStyle: 'none' }}>{body}</li>
+  ) : (
+    <p className="translation" lang="hi">{body}</p>
+  );
+}
 
 function Ruler({ lead }: { lead: number }) {
   const [top, setTop] = useState<number | null>(null);
@@ -206,13 +211,12 @@ function Ruler({ lead }: { lead: number }) {
 
 interface ReaderProps {
   blocks: ViewBlock[];
-  onRead: (index: number, sentence?: number) => void;
+  onRead: (index: number, sentence?: number, hindi?: boolean) => void;
   onTranslate: (index: number) => void;
   canTranslate: boolean;
-  translatingId: string | null;
 }
 
-export function Reader({ blocks, onRead, onTranslate, canTranslate, translatingId }: ReaderProps) {
+export function Reader({ blocks, onRead, onTranslate, canTranslate }: ReaderProps) {
   const s = useSettings();
   const match = useApp((a) => a.lecture.match);
   const lectureActive = useApp((a) => a.lecture.active || a.lecture.captions.length > 0);
@@ -229,11 +233,15 @@ export function Reader({ blocks, onRead, onTranslate, canTranslate, translatingI
       if (!w || window.getSelection()?.toString()) return;
       const m = w.id.match(/^w-(.+)-(\d+)$/);
       if (!m) return;
-      const bi = blocks.findIndex((b) => b.id === m[1]);
-      if (bi < 0) return;
       const offset = Number(m[2]);
-      const si = blocks[bi].sentences.findIndex((x) => offset >= x.start && offset < x.end);
-      onRead(bi, Math.max(0, si));
+      // A word in a Hindi translation ("b12h") reads that translation from its sentence.
+      const hindi = m[1].endsWith('h') && !blocks.some((b) => b.id === m[1]);
+      const blockId = hindi ? m[1].slice(0, -1) : m[1];
+      const bi = blocks.findIndex((b) => b.id === blockId);
+      if (bi < 0) return;
+      const sentences = hindi ? splitSentences(useApp.getState().translations[blockId] ?? '') : blocks[bi].sentences;
+      const si = sentences.findIndex((x) => offset >= x.start && offset < x.end);
+      onRead(bi, Math.max(0, si), hindi);
     },
     [blocks, onRead],
   );
@@ -265,7 +273,6 @@ export function Reader({ blocks, onRead, onTranslate, canTranslate, translatingI
         isHere={lectureActive && match === i}
         translation={translations[b.id]}
         canTranslate={canTranslate}
-        translating={translatingId === b.id}
         onRead={onRead}
         onTranslate={onTranslate}
       />

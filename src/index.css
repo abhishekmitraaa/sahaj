@@ -1606,10 +1606,24 @@ kbd {
   .player {
     flex-wrap: nowrap;
   }
-  .player-extra .btn {
-    width: 44px;
+  .player-extra {
+    gap: 2px;
+  }
+  .player-extra .btn,
+  .player-main .btn-icon {
+    width: 40px;
     padding: 0;
     justify-content: center;
+  }
+  .player-extra .btn .muted {
+    display: none;
+  }
+  .play-btn {
+    width: 48px;
+    height: 48px;
+  }
+  .player-speed {
+    gap: 4px;
   }
   .toast {
     bottom: auto;
@@ -1629,6 +1643,15 @@ kbd {
   }
   .home-inner {
     padding: 24px 16px 48px;
+  }
+}
+
+@media (max-width: 420px) {
+  .player-speed output {
+    display: none;
+  }
+  .player-speed input {
+    width: 72px;
   }
 }
 

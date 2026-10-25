@@ -1,6 +1,6 @@
 export type Command =
   | { type: 'play' | 'pause' | 'faster' | 'slower' | 'next' | 'previous' | 'nextSection' | 'prevSection' }
-  | { type: 'bigger' | 'smaller' | 'ruler' | 'simplify' | 'translate' | 'summary' | 'glossary' | 'notes' }
+  | { type: 'bigger' | 'smaller' | 'ruler' | 'simplify' | 'translate' | 'english' | 'summary' | 'glossary' | 'notes' }
   | { type: 'lectureStart' | 'lectureStop' | 'whereAmI' | 'help' | 'top' }
   | { type: 'theme'; theme: 'dark' | 'light' | 'contrast' | 'sepia' }
   | { type: 'goto'; query: string }
@@ -48,6 +48,7 @@ export function parseCommand(input: string): Command | null {
 
   if (has(s, 'ruler', 'line focus', 'focus line', 'रूलर')) return { type: 'ruler' };
   if (has(s, 'simplify', 'simple words', 'plain language', 'easier', 'आसान', 'सरल')) return { type: 'simplify' };
+  if (has(s, 'in english', 'english mein', 'original language', 'stop translating', 'अंग्रेज़ी में', 'अंग्रेजी में', 'इंग्लिश में')) return { type: 'english' };
   if (has(s, 'translate', 'in hindi', 'hindi mein', 'अनुवाद', 'हिंदी में')) return { type: 'translate' };
   if (has(s, 'summary', 'summarise', 'summarize', 'key points', 'सारांश', 'मुख्य बातें')) return { type: 'summary' };
   if (has(s, 'glossary', 'key words', 'keywords', 'शब्दावली')) return { type: 'glossary' };
@@ -71,7 +72,8 @@ export const COMMAND_EXAMPLES: { en: string; hi: string }[] = [
   { en: 'Go to stomata', hi: '—' },
   { en: 'What does chlorophyll mean', hi: 'क्लोरोफिल का मतलब' },
   { en: 'Bigger text / Dark mode', hi: 'बड़ा / डार्क' },
-  { en: 'Simplify / Translate', hi: 'आसान / अनुवाद' },
+  { en: 'Simplify', hi: 'आसान' },
+  { en: 'Read in Hindi / Read in English', hi: 'हिंदी में पढ़ो / अंग्रेज़ी में पढ़ो' },
   { en: 'Start lecture', hi: 'लेक्चर शुरू' },
   { en: 'Where am I', hi: 'कहाँ हूँ' },
 ];
